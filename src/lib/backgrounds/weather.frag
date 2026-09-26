@@ -500,34 +500,28 @@ float mapCloud(vec3 p, int octaves) {
         vec2 d = mat2(cos(a), sin(a), -sin(a), cos(a)) * c;
         float theta = atan(c.y, c.x) - spiral * cloudClock * 0.05;
         float ragged = noise3(vec3(d * 2.5, 3.0)) + 0.5 * noise3(vec3(d * 6.0, 7.0));
-        // the spiral: two arms of a log spiral, their gaps closed near the eye
-        // and opening outward
-        float arm = 0.5 + 0.5 * sin(2.0 * theta + 6.0 * log(r + 0.05) + 1.2 * ragged);
-        float open_ = smoothstep(0.65, 1.7, r);
-        float mass = 1.0 - smoothstep(0.9, 4.0, r + 0.4 * (ragged - 0.75));
-        // (well out from the core the arms soften and broaden)
-        float outer = smoothstep(1.0, 2.0, r);
-        float cover = mass * mix(1.0, mix(smoothstep(0.3, 0.8, arm), arm, outer), open_);
-        // and many thinner feeder bands, wound the same way, reaching far out
-        float feeder = 0.5 + 0.5 * sin(5.0 * theta + 9.0 * log(r + 0.05) + 1.8 * ragged);
-        float reach = 1.0 - smoothstep(1.1, 4.6, r + 0.5 * (ragged - 0.75));
-        cover = max(cover, 0.95 * reach * open_ * feeder * feeder);
-        // and between the bands, and out over the ocean beyond, streamers of cloud
-        // peeling off the spiral: wound at its same pitch, so they run out from the
-        // arms, broken up along their length and fading as they unwind
-        float broken = noise3(vec3(d * 5.0, 5.0)) + 0.5 * noise3(vec3(d * 12.0, 9.0));
-        float s1 = 0.5 + 0.5 * sin(6.0 * theta + 18.0 * log(r + 0.05) + 2.5 * ragged);
-        float s2 = 0.5 + 0.5 * sin(10.0 * theta + 30.0 * log(r + 0.05) + 3.0 * broken);
-        float streamers = (0.6 * s1 + 0.4 * s2) * (0.5 + 0.7 * broken);
-        float around = 1.0 - smoothstep(2.5, 6.5, r);
-        // (a lower, thinner layer than the bands, so the spiral still stands out over it)
-        cover = max(cover, (0.42 + 0.12 * reach) * open_ * around * smoothstep(0.12, 0.6, streamers));
+        // no arms: the cloud is one mass, its lumps sheared into spiral streaks
+        // by the wind turning faster toward the eye (the same noise, sampled from
+        // a frame rotated by the log of the distance out). Solid round the eye, it
+        // breaks up outward into streaks flowing in along the same spiral, the
+        // gaps between them growing until only scattered streaks are left
+        float wind = 2.0 * log(r + 0.05) - spiral * cloudClock * 0.05;
+        vec2 sh = mat2(cos(wind), sin(wind), -sin(wind), cos(wind)) * c;
+        float big = noise3(vec3(sh * 1.1, 3.0)) + 0.5 * noise3(vec3(sh * 2.4, 5.0));
+        float grain = noise3(vec3(sh * 7.0, 7.0)) + 0.5 * noise3(vec3(sh * 15.0, 9.0));
+        float field = (big + 0.35 * grain) / 2.0
+                    + 0.55 * (1.0 - smoothstep(0.45, 1.8, r))
+                    - 0.18 * smoothstep(1.6, 5.0, r);
+        float cover = smoothstep(0.3, 0.75, field) * (1.0 - smoothstep(3.5, 7.0, r));
+        // and where it thins, lower cloud of the same flow carries on along the
+        // same streaks, so the gaps are filled by the storm's own cloud
+        cover = max(cover, 0.42 * smoothstep(0.1, 0.34, field) * (1.0 - smoothstep(4.0, 8.0, r)));
+        float open_ = smoothstep(0.65, 1.7, r), outer = smoothstep(1.0, 2.0, r), feeder = grain / 1.5;
         float eyeR = 0.06 + 0.015 * clamp(p.y + 0.7, 0.0, 1.5);
         // (the cloud rises slowly from a thin veil to a layer, then thickens only
         // gently, so its edges thin out softly over the ocean rather than stop)
-        // (and the bands further out are lower and thinner than the core)
         whirl = spiral * ((mix(-0.72, 0.05, smoothstep(0.0, 0.7, cover)) + 0.35 * cover) * (1.0 - 0.15 * outer) - 0.03 * outer
-                        // (the spiral shows through the dense cloud as soft swells in its top)
+                        // (the flow shows through the dense cloud as soft swells in its top)
                         + 0.3 * (feeder - 0.5) * smoothstep(0.4, 0.9, cover) * smoothstep(0.35, 0.95, r) - 4.0 * smoothstep(eyeR + 0.06, eyeR - 0.01, r));
         smooth_ = spiral * smoothstep(0.05, 0.6, cover) * smoothstep(eyeR + 0.04, eyeR + 0.14, r);
         vec2 dw = d * HURRICANE_SIZE; dw.y *= spin;
@@ -537,11 +531,15 @@ float mapCloud(vec3 p, int octaves) {
     }
     // (a hurricane's thin layer barely changes through its depth, which seen at a
     // slant would smear into streaks)
+    if (spiral > 0.001) p.xz = mat2(0.8, 0.6, -0.6, 0.8) * p.xz;
     vec3 q = p * vec3(stretch * fine, mix(1.0, 0.4, spiral), stretch * fine) - speed1 * (cloudClock * (1.0 - 0.9 * spiral) + constantTime);
-    float f = 0.5 * noise3(q); q = q * 2.02;
-    f += 0.25 * noise3(q); q = q * 2.03;
-    if (octaves > 2) { f += 0.125 * noise3(q); q = q * 2.01; }
-    if (octaves > 3) { f += 0.0625 * noise3(q); q = q * 2.02; }
+    // (for the hurricane each layer of detail is turned against the last, so the
+    // noise's square grid never lines up into blocks in its thin cloud)
+    mat2 turn = spiral > 0.001 ? mat2(0.8, 0.6, -0.6, 0.8) : mat2(1.0);
+    float f = 0.5 * noise3(q); q = q * 2.02; q.xz = turn * q.xz;
+    f += 0.25 * noise3(q); q = q * 2.03; q.xz = turn * q.xz;
+    if (octaves > 2) { f += 0.125 * noise3(q); q = q * 2.01; q.xz = turn * q.xz; }
+    if (octaves > 3) { f += 0.0625 * noise3(q); q = q * 2.02; q.xz = turn * q.xz; }
     if (octaves > 4) f += 0.03125 * noise3(q);
     // the cirrus shield over the core is smooth, the lumps only faint under it
     f = mix(f, 0.5 + (f - 0.5) * 0.2, smooth_);
