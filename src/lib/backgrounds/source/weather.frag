@@ -512,8 +512,11 @@ float mapCloud(vec3 p, int octaves) {
         float feeder = 0.5 + 0.5 * sin(5.0 * theta + 9.0 * log(r + 0.05) + 1.8 * ragged);
         float reach = 1.0 - smoothstep(1.1, 4.6, r + 0.5 * (ragged - 0.75));
         cover = max(cover, 0.95 * reach * open_ * feeder * feeder);
-        // with a thin veil of cloud over the ocean between the bands
-        cover = max(cover, 0.35 * reach);
+        // and between the bands, and out over the ocean beyond, broken cloud and
+        // scattered cumulus, patchy rather than an even veil
+        float broken = noise3(vec3(d * 5.0, 5.0)) + 0.5 * noise3(vec3(d * 12.0, 9.0)) + 0.4 * (feeder - 0.5);
+        float around = 1.0 - smoothstep(2.0, 6.0, r);
+        cover = max(cover, (0.35 + 0.35 * reach) * around * smoothstep(0.3, 1.25, broken));
         float eyeR = 0.06 + 0.015 * clamp(p.y + 0.7, 0.0, 1.5);
         // (the cloud rises slowly from a thin veil to a layer, then thickens only
         // gently, so its edges thin out softly over the ocean rather than stop)
