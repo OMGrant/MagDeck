@@ -531,8 +531,9 @@ float mapCloud(vec3 p, int octaves) {
         // gently, so its edges thin out softly over the ocean rather than stop)
         // (and the bands further out are lower and thinner than the core)
         whirl = spiral * ((mix(-0.72, 0.05, smoothstep(0.0, 0.7, cover)) + 0.35 * cover) * (1.0 - 0.15 * outer) - 0.03 * outer
-                        // (the spiral shows through the dense cloud as soft swells in its top)
-                        + 0.3 * (feeder - 0.5) * smoothstep(0.4, 0.9, cover) * smoothstep(0.35, 0.95, r) - 4.0 * smoothstep(eyeR + 0.06, eyeR - 0.01, r));
+                        // (the arms show on through the dense core as broad, gentle swells)
+                        + 0.35 * (arm - 0.5) * smoothstep(0.4, 0.9, cover) * smoothstep(0.3, 0.8, r) * (1.0 - open_)
+                        - 4.0 * smoothstep(eyeR + 0.06, eyeR - 0.01, r));
         smooth_ = spiral * smoothstep(0.05, 0.6, cover) * smoothstep(eyeR + 0.04, eyeR + 0.14, r);
         vec2 dw = d * HURRICANE_SIZE; dw.y *= spin;
         p.xz = mix(p.xz, dw, spiral * smoothstep(0.08, 0.3, r));
