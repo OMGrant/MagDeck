@@ -504,16 +504,21 @@ float mapCloud(vec3 p, int octaves) {
         // and opening outward
         float arm = 0.5 + 0.5 * sin(2.0 * theta + 6.0 * log(r + 0.05) + 1.2 * ragged);
         float open_ = smoothstep(0.65, 1.7, r);
-        float mass = 1.0 - smoothstep(0.7, 2.7, r + 0.3 * (ragged - 0.75));
-        float cover = mass * mix(1.0, smoothstep(0.3, 0.8, arm), open_);
-        // and many thinner feeder bands, wound the same way, reaching further out
+        float mass = 1.0 - smoothstep(0.7, 3.6, r + 0.4 * (ragged - 0.75));
+        // (well out from the core the arms soften and broaden)
+        float outer = smoothstep(1.0, 2.0, r);
+        float cover = mass * mix(1.0, mix(smoothstep(0.3, 0.8, arm), arm, outer), open_);
+        // and many thinner feeder bands, wound the same way, reaching far out
         float feeder = 0.5 + 0.5 * sin(5.0 * theta + 9.0 * log(r + 0.05) + 1.8 * ragged);
-        float reach = 1.0 - smoothstep(1.1, 3.4, r + 0.4 * (ragged - 0.75));
-        cover = max(cover, 0.55 * reach * open_ * smoothstep(0.55, 0.9, feeder));
+        float reach = 1.0 - smoothstep(1.1, 4.6, r + 0.5 * (ragged - 0.75));
+        cover = max(cover, 0.7 * reach * open_ * feeder * feeder);
+        // with a thin veil of cloud over the ocean between the bands
+        cover = max(cover, 0.25 * reach);
         float eyeR = 0.06 + 0.015 * clamp(p.y + 0.7, 0.0, 1.5);
-        // (the cloud rises quickly to a thin layer, then thickens only gently, so its
-        // edges are soft rather than cliffs)
-        whirl = spiral * (mix(-0.75, 0.05, smoothstep(0.0, 0.35, cover)) + 0.35 * cover
+        // (the cloud rises slowly from a thin veil to a layer, then thickens only
+        // gently, so its edges thin out softly over the ocean rather than stop)
+        // (and the bands further out are lower and thinner than the core)
+        whirl = spiral * ((mix(-0.72, 0.05, smoothstep(0.0, 0.7, cover)) + 0.35 * cover) * (1.0 - 0.35 * outer) - 0.1 * outer
                         // (the spiral shows through the dense cloud as soft swells in its top)
                         + 0.3 * (feeder - 0.5) * smoothstep(0.4, 0.9, cover) * smoothstep(0.35, 0.95, r) - 4.0 * smoothstep(eyeR + 0.06, eyeR - 0.01, r));
         smooth_ = spiral * smoothstep(0.05, 0.6, cover) * smoothstep(eyeR + 0.04, eyeR + 0.14, r);
