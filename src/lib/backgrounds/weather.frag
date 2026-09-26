@@ -515,8 +515,9 @@ float mapCloud(vec3 p, int octaves) {
         // and between the bands, and out over the ocean beyond, broken cloud and
         // scattered cumulus, patchy rather than an even veil
         float broken = noise3(vec3(d * 5.0, 5.0)) + 0.5 * noise3(vec3(d * 12.0, 9.0)) + 0.4 * (feeder - 0.5);
-        float around = 1.0 - smoothstep(2.0, 6.0, r);
-        cover = max(cover, (0.35 + 0.35 * reach) * around * smoothstep(0.3, 1.25, broken));
+        float around = 1.0 - smoothstep(3.0, 8.0, r);
+        // (a lower, thinner layer than the bands, so the spiral still stands out over it)
+        cover = max(cover, (0.4 + 0.12 * reach) * around * smoothstep(0.0, 0.85, broken));
         float eyeR = 0.06 + 0.015 * clamp(p.y + 0.7, 0.0, 1.5);
         // (the cloud rises slowly from a thin veil to a layer, then thickens only
         // gently, so its edges thin out softly over the ocean rather than stop)
