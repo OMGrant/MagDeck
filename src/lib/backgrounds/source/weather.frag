@@ -512,12 +512,16 @@ float mapCloud(vec3 p, int octaves) {
         float feeder = 0.5 + 0.5 * sin(5.0 * theta + 9.0 * log(r + 0.05) + 1.8 * ragged);
         float reach = 1.0 - smoothstep(1.1, 4.6, r + 0.5 * (ragged - 0.75));
         cover = max(cover, 0.95 * reach * open_ * feeder * feeder);
-        // and between the bands, and out over the ocean beyond, broken cloud and
-        // scattered cumulus, patchy rather than an even veil
-        float broken = noise3(vec3(d * 5.0, 5.0)) + 0.5 * noise3(vec3(d * 12.0, 9.0)) + 0.4 * (feeder - 0.5);
-        float around = 1.0 - smoothstep(3.0, 8.0, r);
+        // and between the bands, and out over the ocean beyond, streamers of cloud
+        // peeling off the spiral: wound at its same pitch, so they run out from the
+        // arms, broken up along their length and fading as they unwind
+        float broken = noise3(vec3(d * 5.0, 5.0)) + 0.5 * noise3(vec3(d * 12.0, 9.0));
+        float s1 = 0.5 + 0.5 * sin(6.0 * theta + 18.0 * log(r + 0.05) + 2.5 * ragged);
+        float s2 = 0.5 + 0.5 * sin(10.0 * theta + 30.0 * log(r + 0.05) + 3.0 * broken);
+        float streamers = (0.6 * s1 + 0.4 * s2) * (0.5 + 0.7 * broken);
+        float around = 1.0 - smoothstep(2.5, 6.5, r);
         // (a lower, thinner layer than the bands, so the spiral still stands out over it)
-        cover = max(cover, (0.4 + 0.12 * reach) * around * smoothstep(0.0, 0.85, broken));
+        cover = max(cover, (0.42 + 0.12 * reach) * open_ * around * smoothstep(0.12, 0.6, streamers));
         float eyeR = 0.06 + 0.015 * clamp(p.y + 0.7, 0.0, 1.5);
         // (the cloud rises slowly from a thin veil to a layer, then thickens only
         // gently, so its edges thin out softly over the ocean rather than stop)
