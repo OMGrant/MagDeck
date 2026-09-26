@@ -507,9 +507,11 @@ float mapCloud(vec3 p, int octaves) {
         float mass = 1.0 - smoothstep(0.9, 4.0, r + 0.4 * (ragged - 0.75));
         // (well out from the core the arms soften and broaden)
         float outer = smoothstep(1.0, 2.0, r);
-        float cover = mass * mix(1.0, mix(smoothstep(0.3, 0.8, arm), arm, outer), open_);
+        // (thick arms: the gaps between them are narrow lanes)
+        float cover = mass * mix(1.0, smoothstep(0.0, 0.45, arm), open_);
         // and many thinner feeder bands, wound the same way, reaching far out
-        float feeder = 0.5 + 0.5 * sin(5.0 * theta + 9.0 * log(r + 0.05) + 1.8 * ragged);
+        // (at the arms' own pitch, so every band branches from an arm and joins it)
+        float feeder = 0.5 + 0.5 * sin(4.0 * theta + 12.0 * log(r + 0.05) + 1.2 * ragged);
         float reach = 1.0 - smoothstep(1.1, 4.6, r + 0.5 * (ragged - 0.75));
         cover = max(cover, 0.95 * reach * open_ * feeder * feeder);
         // and between the bands, and out over the ocean beyond, streamers of cloud
