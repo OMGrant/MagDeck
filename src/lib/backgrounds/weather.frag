@@ -483,56 +483,55 @@ const float constantTime = 1000.0;
 const float HURRICANE_SIZE = 3.0;
 float mapCloud(vec3 p, int octaves) {
     vec3 speed1 = vec3(0.5, 0.01, 1.0) * 0.5;
-    // A hurricane, as pictures from orbit show one: nearly all of it one great
-    // disc of bright cloud, its top combed into fine curved streaks by the wind
-    // that spirals in, wound tighter and tighter toward a small clear eye; at
-    // its rim the disc frays into bands that trail away in a spiral, breaking
-    // up into the scattered cumulus over the open ocean. The whole storm turns
-    // slowly, as one, so the streaks never wind up tighter
-    float whirl = 0.0, smooth_ = 0.0, fine = 1.0, lumpy = 0.0, disc = 0.0;
+    // A hurricane, as pictures from orbit show one: the whole cloud mass one
+    // continuous spiral, solid round a small clear eye, and further out the
+    // windings drawing apart so ocean opens between them, the arms thinning as
+    // they unwind until they break up into the scattered cumulus beyond. Its top
+    // is soft, the lumps only swirled by the turning. The whole storm turns
+    // slowly, as one, so the spiral never winds up tighter
+    float whirl = 0.0, smooth_ = 0.0, fine = 1.0, lumpy = 0.0;
     if (spiral > 0.001) {
         vec2 c = p.xz / HURRICANE_SIZE;
         c.y *= spin;
         float r = length(c);
         // turning counterclockwise seen from above north of the equator (clockwise
-        // south); the inner cloud turned much further than the outer, which shears
-        // its lumps out into the streaks
-        float a = spiral * (1.6 / (r + 0.4) + cloudClock * 0.1);
+        // south); the inner cloud turned further than the outer, which swirls its lumps
+        float a = spiral * (1.1 / (r + 0.5) + cloudClock * 0.05);
         vec2 d = mat2(cos(a), sin(a), -sin(a), cos(a)) * c;
-        // (the rim and bands turn with the storm but are not sheared into streaks)
-        float a2 = spiral * (0.9 / (r + 0.5) + cloudClock * 0.1);
-        vec2 d2 = mat2(cos(a2), sin(a2), -sin(a2), cos(a2)) * c;
-        float ragged = noise3(vec3(d2 * 3.0, 3.0)) + 0.5 * noise3(vec3(d2 * 8.0, 7.0));
-        float theta = atan(c.y, c.x) - a2;
-        // two bands trailing out from the rim
-        float band = smoothstep(0.0, 0.9, sin(2.0 * theta + 4.5 * log(r + 0.05) + 0.9 * ragged));
-        float arms = smoothstep(0.9, 1.25, r) * (1.0 - smoothstep(1.9, 3.0, r));
-        // the disc, its rim frayed and drawn out along the bands
-        float fray = noise3(vec3(d2 * 7.0, 11.0)) + 0.5 * noise3(vec3(d2 * 16.0, 13.0));
-        disc = smoothstep(1.5, 0.95, r + 0.15 * (ragged - 0.75) + 0.25 * (fray - 0.75) - 0.35 * band * smoothstep(0.8, 1.3, r));
+        float theta = atan(c.y, c.x) - spiral * cloudClock * 0.05;
+        float ragged = noise3(vec3(d * 2.5, 3.0)) + 0.5 * noise3(vec3(d * 6.0, 7.0));
+        // the spiral: two arms of a log spiral, their gaps closed near the eye
+        // and opening outward
+        float arm = 0.5 + 0.5 * sin(2.0 * theta + 6.0 * log(r + 0.05) + 1.2 * ragged);
+        float open_ = smoothstep(0.65, 1.7, r);
+        float mass = 1.0 - smoothstep(0.7, 2.7, r + 0.3 * (ragged - 0.75));
+        float cover = mass * mix(1.0, smoothstep(0.3, 0.8, arm), open_);
+        // and many thinner feeder bands, wound the same way, reaching further out
+        float feeder = 0.5 + 0.5 * sin(5.0 * theta + 9.0 * log(r + 0.05) + 1.8 * ragged);
+        float reach = 1.0 - smoothstep(1.1, 3.4, r + 0.4 * (ragged - 0.75));
+        cover = max(cover, 0.55 * reach * open_ * smoothstep(0.55, 0.9, feeder));
         float eyeR = 0.06 + 0.015 * clamp(p.y + 0.7, 0.0, 1.5);
-        // the fine streaks combed into its top, running along the wound curves
-        // (the same spiral as the bands, nearly circular, curving gently inward)
-        float along = theta + 4.5 * log(r + 0.02);
-        float streaks = noise3(vec3(cos(along) * 6.0, sin(along) * 6.0, r * 1.5))
-                      + 0.5 * noise3(vec3(cos(along) * 14.0, sin(along) * 14.0, r * 2.5));
-        whirl = spiral * (mix(-0.7 + 0.45 * smoothstep(1.9, 1.2, r) + 0.9 * band * arms, 0.85 + 0.25 * (streaks - 0.75), disc)
-                        - 4.0 * smoothstep(eyeR + 0.035, eyeR, r));
-        lumpy = spiral * arms * band * (1.0 - disc);
-        smooth_ = spiral * disc * smoothstep(eyeR + 0.04, eyeR + 0.14, r) * 0.85;
+        // (the cloud rises quickly to a thin layer, then thickens only gently, so its
+        // edges are soft rather than cliffs)
+        whirl = spiral * (mix(-0.75, 0.05, smoothstep(0.0, 0.35, cover)) + 0.35 * cover
+                        // (the spiral shows through the dense cloud as soft swells in its top)
+                        + 0.3 * (feeder - 0.5) * smoothstep(0.4, 0.9, cover) * smoothstep(0.35, 0.95, r) - 4.0 * smoothstep(eyeR + 0.06, eyeR - 0.01, r));
+        smooth_ = spiral * smoothstep(0.05, 0.6, cover) * smoothstep(eyeR + 0.04, eyeR + 0.14, r);
         vec2 dw = d * HURRICANE_SIZE; dw.y *= spin;
         p.xz = mix(p.xz, dw, spiral * smoothstep(0.08, 0.3, r));
         // a hurricane is vast: its cloud is fine-grained against it
-        fine = mix(1.0, 2.5, spiral);
+        fine = mix(1.0, 3.0, spiral);
     }
-    vec3 q = p * vec3(stretch * fine, fine, stretch * fine) - speed1 * (cloudClock * (1.0 - 0.9 * spiral) + constantTime);
+    // (a hurricane's thin layer barely changes through its depth, which seen at a
+    // slant would smear into streaks)
+    vec3 q = p * vec3(stretch * fine, mix(1.0, 0.4, spiral), stretch * fine) - speed1 * (cloudClock * (1.0 - 0.9 * spiral) + constantTime);
     float f = 0.5 * noise3(q); q = q * 2.02;
     f += 0.25 * noise3(q); q = q * 2.03;
     if (octaves > 2) { f += 0.125 * noise3(q); q = q * 2.01; }
     if (octaves > 3) { f += 0.0625 * noise3(q); q = q * 2.02; }
     if (octaves > 4) f += 0.03125 * noise3(q);
     // the cirrus shield over the core is smooth, the lumps only faint under it
-    f = mix(f, 0.5 + (f - 0.5) * 0.35, smooth_);
+    f = mix(f, 0.5 + (f - 0.5) * 0.2, smooth_);
     // seen from this high the bands' towers are low against their spread (tall
     // lumps would lean out from the middle of the view in the perspective)
     f = 0.5 + (f - 0.5) * (1.0 - 0.45 * lumpy);
@@ -556,13 +555,14 @@ vec4 integrate(vec4 sum, float dif, float den, vec3 bgcol, float t) {
 }
 vec4 raymarch(vec3 ro, vec3 rd, vec3 bgcol) {
     vec4 sum = vec4(0.0);
-    // looking steeply down on a hurricane, each pixel starts its march a little
-    // differently, which breaks up the bands the fixed steps leave
-    float t = spiral > 0.001 ? hash1(dot(gl_FragCoord.xy, vec2(1.0, 57.0))) * 0.03 * spiral : 0.0;
+    float t = 0.0;
     // a camera high above the cloud starts its march at the top of the cloud,
     // not at the camera, and steps finely through it
     if (ro.y > 1.0 && rd.y < 0.0) t += (ro.y - 1.0) / -rd.y;
     float fineStep = 1.0 - 0.6 * spiral;
+    // looking down on a hurricane, each pixel starts its march up to a whole step
+    // further on, so the fixed steps leave no contour lines across its flat top
+    if (spiral > 0.001) t += hash1(dot(gl_FragCoord.xy, vec2(1.0, 57.0))) * max(0.075, 0.02 * t) * fineStep * spiral;
     // four stretches, the nearer drawn in more detail
     for (int s = 0; s < 4; s++) {
         int steps = s == 0 ? 20 : s == 1 ? 25 : s == 2 ? 30 : 40, octaves = 5 - s;
