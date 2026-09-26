@@ -489,7 +489,7 @@ float mapCloud(vec3 p, int octaves) {
     // they unwind until they break up into the scattered cumulus beyond. Its top
     // is soft, the lumps only swirled by the turning. The whole storm turns
     // slowly, as one, so the spiral never winds up tighter
-    float whirl = 0.0, smooth_ = 0.0, fine = 1.0, lumpy = 0.0;
+    float whirl = 0.0, smooth_ = 0.0, fine = 1.0, lumpy = 0.0, lane = 1.0;
     if (spiral > 0.001) {
         vec2 c = p.xz / HURRICANE_SIZE;
         c.y *= spin;
@@ -527,12 +527,15 @@ float mapCloud(vec3 p, int octaves) {
         // (a lower, thinner layer than the bands, so the spiral still stands out over it)
         cover = 1.0 - (1.0 - cover) * (1.0 - (0.42 + 0.12 * reach) * open_ * around * smoothstep(0.0, 0.8, streamers));
         float eyeR = 0.06 + 0.015 * clamp(p.y + 0.7, 0.0, 1.5);
-        // (the cloud rises slowly from a thin veil to a layer, then thickens only
-        // gently, so its edges thin out softly over the ocean rather than stop)
-        // (and the bands further out are lower and thinner than the core)
-        whirl = spiral * ((mix(-0.72, 0.05, smoothstep(0.0, 0.7, cover)) + 0.35 * cover) * (1.0 - 0.15 * outer) - 0.03 * outer
+        // the cloud's top is one smooth surface, falling gently outward: the
+        // spiral is drawn in how thick the cloud is, not how high, so the lanes
+        // between the windings are thinner cloud the ocean shows through, and no
+        // winding ever stands as a step above the next
+        float body = max(mass, max(0.8 * reach, 0.55 * around) * open_);
+        lane = mix(1.0, pow(clamp(cover / max(body, 0.01), 0.0, 1.0), 1.6), spiral);
+        whirl = spiral * ((mix(-0.72, 0.05, smoothstep(0.0, 0.7, body)) + 0.35 * body) * (1.0 - 0.15 * outer) - 0.03 * outer
                         // (the arms show on through the dense core as broad, gentle swells)
-                        + 0.35 * (arm - 0.5) * smoothstep(0.4, 0.9, cover) * smoothstep(0.3, 0.8, r) * (1.0 - open_)
+                        + 0.35 * (arm - 0.5) * smoothstep(0.4, 0.9, body) * smoothstep(0.3, 0.8, r) * (1.0 - open_)
                         - 4.0 * smoothstep(eyeR + 0.06, eyeR - 0.01, r));
         smooth_ = spiral * smoothstep(0.05, 0.6, cover) * smoothstep(eyeR + 0.04, eyeR + 0.14, r);
         vec2 dw = d * HURRICANE_SIZE; dw.y *= spin;
@@ -558,7 +561,7 @@ float mapCloud(vec3 p, int octaves) {
     float top = -0.5 + 1.75 * f - clearing + whirl;
     // (a hurricane's cloud is flat against its size: its tops rise half as far over the base)
     top = mix(top, cloudBase + (top - cloudBase) * 0.5, spiral);
-    return clamp((top - p.y) * (1.0 + 1.5 * spiral), 0.0, 1.0) * smoothstep(cloudBase, cloudBase + 0.22, p.y);
+    return clamp((top - p.y) * (1.0 + 1.5 * spiral), 0.0, 1.0) * smoothstep(cloudBase, cloudBase + 0.22, p.y) * smoothstep(0.15, 1.0, lane);
 }
 vec4 integrate(vec4 sum, float dif, float den, vec3 bgcol, float t) {
     vec3 lin = cloudColor * 1.4 + sunlightColor * dif;
